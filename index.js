@@ -14,40 +14,52 @@ morgan.token('body', (req) => JSON.stringify(req.body));
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
 
-app.get('/', (request, response) => {
-    response.send('<h1>Hello World!</h1>')
-})
-
-app.get('/api/persons', (request, response) => {
-    Person.find({}).then(person => {
-        response.json(person)
+// display simple phonebook overview
+app.get('/api/info', (request, response, next) => {
+    Person.find()
+    .then(personEntry => {
+        response.send(`Phonebook has info for ${personEntry.length} people.\n ${Date()}`)
     })
+    .catch(error => next(error))
 })
 
-app.get('/api/info', (request, response) => {
-    const numPersons = persons.length
-    response.send(`<p>Phonebook has info for ${numPersons} people</p><p>${new Date()}</p>`)
+// get all persons in phonebook in JSON format
+app.get('/api/persons', (request, response, next) => {
+    Person.find({}).then(persons => {
+        if (persons) {
+            response.json(persons)
+        } else {
+            response.status(404).end()
+        }
+    }).catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (request, response) => {
+// get single person in JSON format
+app.get('/api/persons/:id', (request, response, next) => {
     const id = request.params.id
-    const personToDisplay = persons.find(person => person.id === id)
-
-    if (personToDisplay) {
-        // display if the person with id exists
-        response.json(personToDisplay)
-    } else {
-        response.status(404).end()
-    }
+    const personToDisplay = Person.findById(id)
+    .then(person => {
+        if (person) {
+            // display if the person with id exists
+            response.json(person)
+        } else {
+            response.status(404).end()
+        }
+    })
+    .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (request, response) => {
+// delete single person from phonebook
+app.delete('/api/persons/:id', (request, response, next) => {
     const id = request.params.id
-    persons = persons.filter(person => person.id !== id)
-
-    response.status(204).end()
+    Person.findByIdAndDelete(id)
+    .then(result => {
+        response.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
+// helper to generate a unique id in range
 const generateUniqueId = (persons) => {
     let uniqueId
     const existingIds = new Set(persons.map(person => person.id))
@@ -59,7 +71,8 @@ const generateUniqueId = (persons) => {
     return uniqueId
 }
 
-app.post('/api/persons', (request, response) => {
+// add single new contact to phonebook
+app.post('/api/persons', (request, response, next) => {
     const body = request.body
 
     if (!body.name){
@@ -70,22 +83,33 @@ app.post('/api/persons', (request, response) => {
         return response.status(400).json({
             error: "Contact number missing."
         })
-    } else if (persons.some(person => person.name === body.name)) {
-        // reject if the specified name already exists
-        return response.status(400).json({
-            error: "Contact already exists in phonebook."
-        })
     }
 
-    const person = {
+    const person = new Person({
         name: body.name,
         number: body.number,
-        id: generateUniqueId(persons)
-    }
+    })
 
-    persons = persons.concat(person)
-    response.json(person)
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    }).catch(error => next(error))
 })
+
+// update existing contact information
+app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body
+  
+    const person = {
+      name: body.name,
+      number: body.number,
+    }
+  
+    Person.findByIdAndUpdate(request.params.id, person, { new: true })
+      .then(updatedPerson => {
+        response.json(updatedPerson)
+      })
+      .catch(error => next(error))
+  })
 
 app.use(morgan())
 
@@ -94,6 +118,18 @@ const unknownEndpoint = (request, response) => {
   }
   
   app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    if (error.name === 'CastError') {
+        return response.status(400).send({ error: 'invalid id'})
+    }
+
+    next(error)
+}
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
