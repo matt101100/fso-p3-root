@@ -20,7 +20,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:ui": "rm -rf dist && cd /Users/matthewlazar/Downloads/full-stack-open/part2/phonebook && npm run build && cp -r dist /Users/matthewlazar/Downloads/fso-p3-root",
     "deploy": "fly deploy",
-    "deploy:full": "npm run build:ui && npm run deploy",    
+    "deploy:full": "npm run build:ui && npm run deploy",
     "logs:prod": "fly logs"
   },
   "devDependencies": {
@@ -29,7 +29,10 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "mongodb": "^6.12.0",
+    "mongoose": "^8.9.3",
     "morgan": "^1.10.0"
   }
 }
