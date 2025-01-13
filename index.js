@@ -75,41 +75,33 @@ const generateUniqueId = (persons) => {
 app.post('/api/persons', (request, response, next) => {
     const body = request.body
 
-    if (!body.name){
-        return response.status(400).json({
-            error: 'Contact name missing.'
-        })
-    } else if (!body.number) {
-        return response.status(400).json({
-            error: "Contact number missing."
-        })
-    }
-
     const person = new Person({
         name: body.name,
         number: body.number,
     })
 
-    person.save().then(savedPerson => {
-        response.json(savedPerson)
-    }).catch(error => next(error))
+    person.save()
+        .then(savedPerson => {
+            response.json(savedPerson)
+        })
+        .catch(error => next(error))
 })
 
 // update existing contact information
 app.put('/api/persons/:id', (request, response, next) => {
-    const body = request.body
+    const [name, number] = request.body
   
-    const person = {
-      name: body.name,
-      number: body.number,
-    }
-  
-    Person.findByIdAndUpdate(request.params.id, person, { new: true })
-      .then(updatedPerson => {
-        response.json(updatedPerson)
-      })
-      .catch(error => next(error))
-  })
+    Person.findByIdAndUpdate(
+        request.params.id,
+        { name, number },
+        { new: true, runValidators: true, context: 'query' }
+    )
+        .then(updatedPerson => {
+            response.json(updatedPerson)
+        })
+        .catch(error => next(error))
+    
+})
 
 app.use(morgan())
 
@@ -124,6 +116,8 @@ const errorHandler = (error, request, response, next) => {
 
     if (error.name === 'CastError') {
         return response.status(400).send({ error: 'invalid id'})
+    } else if (error.name === 'ValidationError') {
+        return response.status(400).json({ error: error.message })
     }
 
     next(error)
